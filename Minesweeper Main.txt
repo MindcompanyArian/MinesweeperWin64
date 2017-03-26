@@ -1,0 +1,231 @@
+import java.util.Map;
+
+int maxMines = 20;
+
+HashMap<PVector, Boolean> tiles;
+HashMap<PVector, Integer> tileNumbers;
+HashMap<PVector, Boolean> markedTiles;
+HashMap<PVector, Boolean> openedTiles;
+
+int currentMines = 0;
+int tileCount = 0;
+int markedMines = 0;
+
+int openTiles;
+boolean dead, won;
+
+void draw() {
+  if (won) {  
+    background(0);
+    fill(255);
+    text("YOU WON!", mouseX, mouseY);
+    fill(127);
+    text("(You clicked " + openTiles + " times)", mouseX, mouseY + 50);
+  }
+}
+
+void setup() {
+  size(800, 800);
+  background(0);
+  surface.setTitle("MINESWEEPER | Soul_Eater301");
+
+  tiles = new HashMap<PVector, Boolean>();
+  tileNumbers = new HashMap<PVector, Integer>();
+  markedTiles = new HashMap<PVector, Boolean>();
+  openedTiles = new HashMap<PVector, Boolean>();
+  
+  setTiles();
+}
+
+void setTiles() { 
+  for (int x = 50; x < width - 50; x += 50) {
+    for (int y = 100; y < height; y += 50) {
+      tileCount++;
+      
+      fill(255);   
+      rect(x, y - 50, 50, 50);
+      
+      PVector rectPos = new PVector(x, y, 0);     
+      tiles.put(rectPos, false);
+    }
+  }
+  setMines(maxMines);
+}
+
+void setMines(int maximum) { 
+  float rdmX = random(-50, width);
+  float rdmY = random(height);
+
+  for (Map.Entry tile : tiles.entrySet()) {
+    PVector tilePos = (PVector)tile.getKey();
+    
+    if (tilePos.x - rdmX >= 0 && tilePos.x - rdmX <= 50) {
+      if (tilePos.y - rdmY >= 0 && tilePos.y - rdmY <= 50) {
+        
+        if (currentMines < maximum) { 
+          if ((boolean)tile.getValue() == false) {       
+            currentMines++;    
+            
+            tiles.put(tilePos, true);
+            println("placed mine @" + tilePos + " - " + currentMines);
+          }
+        } else { return; }
+      }
+    }
+  }
+
+  if(currentMines < maximum) {
+    setMines(maximum);
+    return;
+  }
+  
+  println("total tiles=" + tileCount);
+  println("total mines=" + currentMines);
+  
+  setNumbers();
+}
+
+void setNumbers() {
+  for (Map.Entry tile : tiles.entrySet()) {
+    if (!(boolean)tile.getValue()) {     
+      PVector tilePos = (PVector)tile.getKey();
+      int value = 0;
+      
+      for (int x = (int)tilePos.x - 25; x < (int)tilePos.x; x += 25) {
+        for (int y = (int)tilePos.y - 75; y < (int)tilePos.y - 50; y += 25) {
+          
+          for (Map.Entry neighbour : tiles.entrySet()) {
+            PVector nPos = (PVector)neighbour.getKey();
+            if (dist(nPos.x, nPos.y, tilePos.x, tilePos.y) < 75) {
+              if ((boolean)neighbour.getValue()) {
+                value++;
+              }
+            }
+          }
+        }
+      }
+      tileNumbers.put(tilePos, value);
+    }
+  }
+}
+
+void mouseClicked() {
+  if (dead || won) { println("You are dead or won the game, you can't search for mines!"); return; }
+
+  if (mouseButton == LEFT) { 
+    PVector mousePos = new PVector(mouseX, mouseY);
+    
+    for(Map.Entry tile : tiles.entrySet()) {
+      PVector tilePos = (PVector)tile.getKey();
+      
+      if (tilePos.x - mousePos.x + 50 >= 0 && tilePos.x - mousePos.x + 50<= 50) {
+        if (tilePos.y - mousePos.y >= 0 &&tilePos.y - mousePos.y <= 50) {
+          
+          fill(0);
+          textSize(32);
+          if (tileNumbers.get((PVector)tile.getKey()) != null) {        
+            openTiles++;
+            fill(0);
+            if ((int)tileNumbers.get((PVector)tile.getKey()) == 0) {  
+              fill(127);
+              println("clearing area around 0");
+              text((int)tileNumbers.get((PVector)tile.getKey()), tilePos.x + 15, tilePos.y - 15);
+              clearNearby(tilePos);
+            }
+            else {      
+              text((int)tileNumbers.get((PVector)tile.getKey()), tilePos.x + 15, tilePos.y - 15);
+            }
+            println("tile clicked: " + tile);
+            openedTiles.put(tilePos, true);
+          }
+          else {
+            println("BOOM!");
+            println("You clicked " + openTiles + " times");
+            dead = true;
+            showMines();
+          }
+        }
+      }
+    }
+  }
+  else {
+    for(Map.Entry tile : tiles.entrySet()) {
+      PVector tilePos = (PVector)tile.getKey();
+      PVector mousePos = new PVector(mouseX, mouseY, 0);
+      if (tilePos.x - mousePos.x + 50 >= 0 && tilePos.x - mousePos.x + 50<= 50) {
+        if (tilePos.y - mousePos.y >= 0 &&tilePos.y - mousePos.y <= 50) {
+          
+          if (openedTiles.get((PVector)tilePos) == null) {
+            fill(255, 255, 0);
+            
+            if(markedTiles.get((PVector)tilePos) != null) {  
+              if (markedTiles.get((PVector)tilePos)) {
+                fill(255);
+                markedTiles.put(tilePos, false);
+                if (tiles.get((PVector)tilePos)) {
+                  markedMines -= 2;
+                }
+              }
+              else {
+                markedTiles.put(tilePos, true);
+              }
+            }
+            else {
+              markedTiles.put(tilePos, true);
+            }
+            rect(tilePos.x, tilePos.y - 50, 50, 50);
+            
+            if (tiles.get((PVector)tilePos)) {
+              markedMines++;
+              println("marked mines:" + markedMines);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  if (markedMines == maxMines) {
+    if (openedTiles.size() == tileCount - currentMines) {
+      win();
+    }
+  }
+}
+
+void clearNearby(PVector tilePos) {
+  for (int x = (int)tilePos.x - 25; x < (int)tilePos.x; x += 25) {
+    for (int y = (int)tilePos.y - 75; y < (int)tilePos.y - 50; y += 25) {
+      
+      for (Map.Entry neighbour : tiles.entrySet()) {
+        PVector nPos = (PVector)neighbour.getKey();
+        if (dist(nPos.x, nPos.y, tilePos.x, tilePos.y) < 75) {
+          fill(0);
+          if ((int)tileNumbers.get((PVector)neighbour.getKey()) == 0) {  
+            fill(127);
+            text((int)tileNumbers.get((PVector)neighbour.getKey()), nPos.x + 15, nPos.y - 15);
+          }
+          else {           
+            text((int)tileNumbers.get((PVector)neighbour.getKey()), nPos.x + 15, nPos.y - 15);
+          }
+          openedTiles.put(nPos, true);
+        }
+      }
+    }
+  }
+}
+
+void showMines() {
+  for (Map.Entry tile : tiles.entrySet()) {   
+    if ((boolean)tile.getValue()) {
+      PVector tilePos = (PVector)tile.getKey();
+      fill(255, 0, 0);
+      rect(tilePos.x, tilePos.y - 50, 50, 50);
+    }
+  }
+  fill(0);
+  text("BOOM!", mouseX, mouseY);
+}
+
+void win() {
+  won = true;
+}
